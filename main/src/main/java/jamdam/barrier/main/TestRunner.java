@@ -5,6 +5,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Configuration
 public class TestRunner {
 
@@ -13,19 +16,18 @@ public class TestRunner {
         return args -> {
 
             String user = "user1";
+            ExecutorService executor = Executors.newFixedThreadPool(10);
 
-            for (int i = 0; i < 150; i++) {
-                boolean allowed = limiter.allow(user, 1);
-                System.out.println("Request " + i + " → " + allowed);
+            for (int i = 0; i < 200; i++) {   // > capacity
+                executor.submit(() -> {
+                    boolean allowed = limiter.allow("user1", 1);
+                    System.out.println(allowed);
+                });
             }
 
-            System.out.println("Waiting 2 seconds...");
-            Thread.sleep(2000);
+            executor.shutdown();
 
-            for (int i = 0; i < 50; i++) {
-                boolean allowed = limiter.allow(user, 1);
-                System.out.println("After refill " + i + " → " + allowed);
-            }
+            executor.shutdown();
         };
     }
 }
