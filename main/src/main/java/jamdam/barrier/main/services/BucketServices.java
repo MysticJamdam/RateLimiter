@@ -1,48 +1,67 @@
 package jamdam.barrier.main.services;
-
-import jamdam.barrier.main.entity.TokenBucket;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class BucketServices {
-    public Map<String, TokenBucket> buckets = new ConcurrentHashMap<>();
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
-    public TokenBucket createTokenBucket(double capacity, double fillingRate ){
-        TokenBucket tokenBucket = new TokenBucket();
-        tokenBucket.setFillingRate(fillingRate);
-        tokenBucket.setCapacity(capacity);
-        tokenBucket.setTokens(capacity);
-        tokenBucket.setLastRefillTime(System.currentTimeMillis());
-        return tokenBucket;
-    }
+    public boolean allow(String userId, int cost) {
 
-    public void refill(TokenBucket tokenBucket){
-        long curr =  System.currentTimeMillis();
-        double elapsedSeconds = (curr - tokenBucket.getLastRefillTime()) / 1000.00;
-        if (elapsedSeconds < 0.001) return;
-        double newTokens = (elapsedSeconds * tokenBucket.getFillingRate()) + tokenBucket.getTokens();
-        tokenBucket.setTokens(Math.min(newTokens, tokenBucket.getCapacity()));
-        tokenBucket.setLastRefillTime(curr);
-    }
-
-    public boolean allow(String userId, int cost){
-        if(cost <= 0){
-            throw new  IllegalArgumentException("cost must be greater than 0");
+        if (cost <= 0) {
+            throw new IllegalArgumentException("cost must be greater than 0");
         }
-        TokenBucket tokenBucket = buckets.computeIfAbsent(userId, id -> createTokenBucket(100, 10));
-        synchronized (tokenBucket) {
-            if (System.currentTimeMillis() > tokenBucket.getLastRefillTime()) {
-                refill(tokenBucket);
-            }
-            if (tokenBucket.getTokens() >= cost) {
-                tokenBucket.setTokens(tokenBucket.getTokens() - cost);
-                return true;
-            }
-            return false;
+        String key = "rate_limit:" + userId;
+        Map<Object, Object> data =
+                redisTemplate.opsForHash().entries(key);
+        double tokens;
+        long lastRefillTime;
+        if (data.isEmpty()) {
+            tokens = 100;
+            lastRefillTime = System.currentTimeMillis();
         }
+        else {
+            tokens = Double.parseDouble(
+                    (String) data.get("tokens")
+            );
+
+            lastRefillTime = Long.parseLong(
+                    (String) data.get("last_refill_time")
+            );
+        }
+        long now = System.currentTimeMillis();
+        double elapsedSeconds =
+                (now - lastRefillTime) / 1000.0;
+        tokens = Math.min(
+                100,
+                tokens + elapsedSeconds * 10
+        );
+        boolean allowed = false;
+        if (tokens >= cost) {
+            tokens -= cost;
+            allowed = true;
+        }
+        redisTemplate.opsForHash().put(
+                key,
+                "tokens",
+                String.valueOf(tokens)
+        );
+
+        redisTemplate.opsForHash().put(
+                key,
+                "last_refill_time",
+                String.valueOf(now)
+        );
+
+        redisTemplate.expire(
+                key,
+                Duration.ofMinutes(10)
+        );
+
+        return allowed;
     }
 }
