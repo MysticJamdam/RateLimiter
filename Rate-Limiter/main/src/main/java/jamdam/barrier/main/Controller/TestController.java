@@ -10,4 +10,21 @@ public class TestController {
     public String test(){
         return "Request Successful";
     }
+
+    @GetMapping("/login")
+    public String login(){
+        return "Login Request Successful";
+    }
+
+    @GetMapping("/premium")
+    public String Premium(){
+        return "Premium Request Successful";
+    }
+
+    @GetMapping("/search")
+    public String search(){
+        return "Search Request Successful";
+    }
+
+
 }

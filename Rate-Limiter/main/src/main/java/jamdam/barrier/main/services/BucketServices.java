@@ -1,7 +1,8 @@
 package jamdam.barrier.main.services;
 
+import jamdam.barrier.main.entity.RateLimitPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 
@@ -11,28 +12,28 @@ import java.util.Collections;
 public class BucketServices {
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private RedisScript<Long> tokenBucketScript;
 
-    public boolean allow(String userId, int cost) {
-
-        if (cost <= 0) {
-            throw new IllegalArgumentException(
-                    "cost must be greater than 0"
-            );
-        }
+    public boolean allow(String userId, RateLimitPolicy rateLimitPolicy) {
 
         String key = "rate_limit:" + userId;
+        System.out.println("SERVICE HIT");
 
         Long result = redisTemplate.execute(
                 tokenBucketScript,
                 Collections.singletonList(key),
-                10,
-                1,
-                System.currentTimeMillis(),
-                cost
+
+                String.valueOf(rateLimitPolicy.getCapacity()),
+                String.valueOf(rateLimitPolicy.getRefillrate()),
+                String.valueOf(System.currentTimeMillis()),
+                String.valueOf(rateLimitPolicy.getCost())
+        );
+
+        System.out.println(
+                "RESULT = " + result
         );
 
         return result != null && result == 1;
