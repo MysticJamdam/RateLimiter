@@ -18,6 +18,9 @@ public class Filter extends OncePerRequestFilter {
     @Autowired
     private PolicyService policyService;
 
+    @Autowired
+    private MetricsServices metricsServices;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String userId = request.getRemoteAddr();
@@ -33,10 +36,15 @@ public class Filter extends OncePerRequestFilter {
                         userId,
                         policy
                 );
+        metricsServices.incrementTotal();
         if (!allowed) {
+            metricsServices.incrementBlocked();
             response.setStatus(429);
             response.getWriter().write("Too many requests");
             return;
+        }
+        else{
+            metricsServices.incrementAllowed();
         }
         filterChain.doFilter(request, response);
     }
