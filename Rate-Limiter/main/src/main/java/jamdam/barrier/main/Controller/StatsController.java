@@ -17,7 +17,8 @@ public class StatsController {
         return new StatsResponse(
                 metricsServices.getTotalRequests(),
                 metricsServices.getAllowedRequests(),
-                metricsServices.getBlockedRequests()
+                metricsServices.getBlockedRequests(),
+                metricsServices.getRedisFailures()
         );
     }
 }

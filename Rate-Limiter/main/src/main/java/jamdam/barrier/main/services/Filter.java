@@ -3,6 +3,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jamdam.barrier.main.DTO.RateLimitResult;
 import jamdam.barrier.main.entity.RateLimitPolicy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -22,32 +23,102 @@ public class Filter extends OncePerRequestFilter {
     private MetricsServices metricsServices;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String userId = request.getRemoteAddr();
-        System.out.println("FILTER HIT");
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String userId =
+                request.getRemoteAddr();
+
         String endpoint =
                 request.getRequestURI();
 
         RateLimitPolicy policy =
                 policyService.getPolicy(endpoint);
 
-        boolean allowed =
-                bucketServices.allow(
-                        userId,
-                        policy
-                );
+        RateLimitResult result;
+
+        try {
+
+            result =
+                    bucketServices.allow(
+                            userId,
+                            policy
+                    );
+
+        }
+        catch (Exception e) {
+
+            metricsServices.incrementRedisFailures();
+
+            System.out.println(
+                    "REDIS FAILURE: " +
+                            e.getMessage()
+            );
+
+            response.setHeader(
+                    "X-RateLimit-Status",
+                    "DEGRADED"
+            );
+
+            result =
+                    new RateLimitResult(
+                            true,
+                            policy.getCapacity(),
+                            0,
+                            0
+                    );
+        }
+
         metricsServices.incrementTotal();
-        if (!allowed) {
+
+        response.setHeader(
+                "X-RateLimit-Limit",
+                String.valueOf(
+                        policy.getCapacity()
+                )
+        );
+
+        response.setHeader(
+                "X-RateLimit-Remaining",
+                String.valueOf(
+                        result.getRemainingTokens()
+                )
+        );
+
+        response.setHeader(
+                "X-RateLimit-Reset",
+                String.valueOf(
+                        result.getResetTime()
+                )
+        );
+
+        if (!result.isAllowed()) {
+
             metricsServices.incrementBlocked();
+
+            response.setHeader(
+                    "Retry-After",
+                    String.valueOf(
+                            result.getRetryAfter()
+                    )
+            );
+
             response.setStatus(429);
-            response.getWriter().write("Too many requests");
+
+            response.getWriter()
+                    .write("Too many requests");
+
             return;
         }
-        else{
-            metricsServices.incrementAllowed();
-        }
-        filterChain.doFilter(request, response);
+
+        metricsServices.incrementAllowed();
+
+        filterChain.doFilter(
+                request,
+                response
+        );
     }
-
-
 }

@@ -6,13 +6,15 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
 
+import java.util.List;
+
 @Configuration
 public class RedisConfig {
 
     @Bean
-    public RedisScript<Long> tokenBucketScript() {
+    public RedisScript<List> tokenBucketScript() {
 
-        DefaultRedisScript<Long> script =
+        DefaultRedisScript<List> script =
                 new DefaultRedisScript<>();
 
         script.setLocation(
@@ -21,7 +23,7 @@ public class RedisConfig {
                 )
         );
 
-        script.setResultType(Long.class);
+        script.setResultType(List.class);
 
         return script;
     }
