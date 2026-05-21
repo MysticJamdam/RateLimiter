@@ -1,50 +1,74 @@
 package jamdam.barrier.main.services;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class MetricsServices {
-    private AtomicLong totalRequests = new AtomicLong(0);
-    private AtomicLong blockedRequests = new AtomicLong(0);
-    private AtomicLong allowedRequests = new AtomicLong(0);
-    private AtomicLong redisFailures = new AtomicLong(0);
 
-    public long getRedisFailures() {
-        return redisFailures.get();
-    }
+    private final Counter totalRequests;
+    private final Counter allowedRequests;
+    private final Counter blockedRequests;
+    private final Counter redisFailures;
 
-    public void setRedisFailures(AtomicLong redisFailures) {
-        this.redisFailures = redisFailures;
+    @Autowired
+    public MetricsServices(
+            MeterRegistry meterRegistry
+    ) {
+
+        totalRequests =
+                Counter.builder(
+                                "requests.total"
+                        )
+                        .description(
+                                "Total requests"
+                        )
+                        .register(meterRegistry);
+
+        allowedRequests =
+                Counter.builder(
+                                "requests.allowed"
+                        )
+                        .description(
+                                "Allowed requests"
+                        )
+                        .register(meterRegistry);
+
+        blockedRequests =
+                Counter.builder(
+                                "requests.blocked"
+                        )
+                        .description(
+                                "Blocked requests"
+                        )
+                        .register(meterRegistry);
+
+        redisFailures =
+                Counter.builder(
+                                "redis.failures"
+                        )
+                        .description(
+                                "Redis failures"
+                        )
+                        .register(meterRegistry);
     }
 
     public void incrementTotal() {
-        totalRequests.incrementAndGet();
-    }
-
-    public void incrementRedisFailures() {
-        redisFailures.incrementAndGet();
+        totalRequests.increment();
     }
 
     public void incrementAllowed() {
-        allowedRequests.incrementAndGet();
+        allowedRequests.increment();
     }
 
     public void incrementBlocked() {
-        blockedRequests.incrementAndGet();
+        blockedRequests.increment();
     }
 
-    public long getTotalRequests() {
-        return totalRequests.get();
+    public void incrementRedisFailures() {
+        redisFailures.increment();
     }
-
-    public long getAllowedRequests() {
-        return allowedRequests.get();
-    }
-
-    public long getBlockedRequests() {
-        return blockedRequests.get();
-    }
-
 }

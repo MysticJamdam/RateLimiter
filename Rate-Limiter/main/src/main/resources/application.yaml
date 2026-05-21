@@ -44,3 +44,10 @@ rate-limit:
       capacity: 100
       refill-rate: 20
       cost: 1
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
