@@ -5,10 +5,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jamdam.barrier.main.DTO.RateLimitResult;
 import jamdam.barrier.main.entity.RateLimitPolicy;
+import jamdam.barrier.main.resolver.IpIdentifierResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
 import java.io.IOException;
 
 @Component
@@ -22,6 +22,9 @@ public class Filter extends OncePerRequestFilter {
     @Autowired
     private MetricsServices metricsServices;
 
+    @Autowired
+    private IpIdentifierResolver ipIdentifierResolver;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -30,7 +33,7 @@ public class Filter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String userId =
-                request.getRemoteAddr();
+                ipIdentifierResolver.resolve(request);
 
         String endpoint =
                 request.getRequestURI();
